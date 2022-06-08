@@ -13,13 +13,15 @@ pub use daemonize_me::Daemon;
 use notify_rust::Notification;
 use std::io::BufReader;
 use rodio::{Decoder, OutputStream, source::Source};
-
-
-
+use std::io::{stdin, stdout, Write};
+use std::io;
+use std::sync::mpsc;
+use std::sync::mpsc::Receiver;
+use std::sync::mpsc::TryRecvError;
 
 fn after_init_timer(a: Option<&dyn Any>) {
     let a = a.unwrap().downcast_ref::<(u64,String)>().unwrap();
-    let target_time = chrono::Local::now().time() + chrono::Duration::from_std(time::Duration::from_secs(a.0)).unwrap();
+    let target_time = chrono::Local::now().time() + chrono::Duration::seconds(a.0 as i64);
 
     loop {
         if chrono::Local::now().time() >= target_time {
@@ -45,10 +47,11 @@ fn after_init_timer(a: Option<&dyn Any>) {
 }
 fn help(a:Vec<String>) {
     println!("Chimer is a pure Rust cli timer & stopwatch application.
---------------------------------------------------------
+----------------------------------------------------------------------------------------------------------
 Usage:
     - chimer -t/--timer DURATION \"TIMER NAME\" | Starts a timer that chimes when the duration has passed.
                                    The duration has a format of H:M:S .
+    - chimer -s/--stopwatch | Starts a stopwatch that stops when any key is pressed.
 ");
 }
 
@@ -98,12 +101,51 @@ chimer -t 0:10:0 \"Go for a walk\" ");
     }
 }
 
+fn spawn_stdin_channel() -> Receiver<String> {
+    let (tx, rx) = mpsc::channel::<String>();
+    thread::spawn(move || loop {
+        let mut buffer = String::new();
+        io::stdin().read_line(&mut buffer).unwrap();
+        tx.send(buffer).unwrap();
+    });
+    rx
+}
+
+fn stopwatch(a: Vec<String>) {
+    let start_time = chrono::Local::now().time();
+
+    let duration = chrono::NaiveTime::signed_duration_since(chrono::Local::now().time(),start_time);
+    let mseconds = duration.num_milliseconds() % 1000;
+    let seconds = duration.num_seconds() % 60;
+    let minutes = (duration.num_minutes() / 60) % 60;
+    let hours = (duration.num_hours() / 60) / 60;
+
+    println!("Press enter to stop the timer...");
+    println!("{}:{}:{}:{}", hours, minutes, seconds, mseconds);
+
+    let stdin_channel = spawn_stdin_channel();
+
+    loop {
+        let duration = chrono::NaiveTime::signed_duration_since(chrono::Local::now().time(),start_time);
+        let mseconds = duration.num_milliseconds() % 1000;
+        let seconds = duration.num_seconds() % 60;
+        let minutes = (duration.num_minutes() / 60) % 60;
+        let hours = (duration.num_hours() / 60) / 60;
+        println!("\x1b[1A{}:{}:{}:{}", hours, minutes, seconds, mseconds);
+        if stdin_channel.try_recv().is_ok(){
+            break;
+        }
+        thread::sleep(time::Duration::from_millis(1));
+    }
+}
+
 fn main() {
 
     type Argop = fn(Vec<String>);
 
     let help: Argop = help;
     let timer: Argop = timer;
+    let stopwatch: Argop = stopwatch;
 
     let mut valid_args: HashMap<String, Argop> = HashMap::new();
     valid_args.insert(
@@ -122,6 +164,16 @@ fn main() {
         "--timer".to_string(),
         timer,
     );
+    valid_args.insert(
+        "-s".to_string(),
+        stopwatch,
+    );
+    valid_args.insert(
+        "--stopwatch".to_string(),
+        stopwatch,
+    );
+
+
 
 
     let args: Vec<String> = env::args().collect();
@@ -129,6 +181,8 @@ fn main() {
     if args.len() > 1 {
         if valid_args.contains_key(&args[1]){
             valid_args.get(&args[1]).unwrap()(args);
+        } else {
+            help(args);
         }
     }
 
