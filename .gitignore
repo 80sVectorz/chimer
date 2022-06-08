@@ -1,1 +1,4 @@
 /target
+err.log
+info.log
+example.pid
