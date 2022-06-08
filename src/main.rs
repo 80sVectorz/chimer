@@ -82,11 +82,8 @@ chimer -t 0:10:0 \"Go for a walk\" ");
         let stdout = File::create("info.log").unwrap();
         let stderr = File::create("err.log").unwrap();
         let daemon = Daemon::new()
-            .pid_file("example.pid", Some(false))
             .umask(0o000)
             .work_dir(".")
-            .stdout(stdout)
-            .stderr(stderr)
             // Hooks are optional
             .setup_post_init_hook(after_init_timer, Some(&(duration,id.to_string())))
             .start();
