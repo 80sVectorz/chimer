@@ -79,8 +79,6 @@ chimer -t 0:10:0 \"Go for a walk\" ");
             exit(0);
         }
 
-        let stdout = File::create("info.log").unwrap();
-        let stderr = File::create("err.log").unwrap();
         let daemon = Daemon::new()
             .umask(0o000)
             .work_dir(".")
