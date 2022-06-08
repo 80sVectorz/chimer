@@ -184,6 +184,8 @@ fn main() {
         } else {
             help(args);
         }
+    } else {
+        help(args);
     }
 
 }
