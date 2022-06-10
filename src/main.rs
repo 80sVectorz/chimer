@@ -13,14 +13,11 @@ pub use daemonize_me::Daemon;
 use notify_rust::Notification;
 use std::io::BufReader;
 use rodio::{Decoder, OutputStream, source::Source};
-use std::io::{stdin, stdout, Write};
 use std::io;
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
-use std::sync::mpsc::TryRecvError;
 
-fn after_init_timer(a: Option<&dyn Any>) {
-    let a = a.unwrap().downcast_ref::<(u64,String)>().unwrap();
+fn after_init_timer(a: (u64,String)) {
     let target_time = chrono::Local::now().time() + chrono::Duration::seconds(a.0 as i64);
 
     loop {
@@ -32,7 +29,7 @@ fn after_init_timer(a: Option<&dyn Any>) {
             // Decode that sound file into a source
             let source = Decoder::new(file).unwrap().repeat_infinite();
             // Play the sound directly on the device
-            stream_handle.play_raw(source.convert_samples());
+            stream_handle.play_raw(source.convert_samples()).expect("Failed to play audio!");
             Notification::new()
             .summary(&format!("Timer finished: {}", a.1))
             .timeout(0)
@@ -51,6 +48,7 @@ fn help(a:Vec<String>) {
 Usage:
     - chimer -t/--timer DURATION \"TIMER NAME\" | Starts a timer that chimes when the duration has passed.
                                    The duration has a format of H:M:S .
+    - chimer -d/--duration \"TIMER NAME\" | Checks and shows the time left on the given timer.
     - chimer -s/--stopwatch | Starts a stopwatch that stops when any key is pressed.
 ");
 }
@@ -83,7 +81,7 @@ chimer -t 0:10:0 \"Go for a walk\" ");
             .umask(0o000)
             .work_dir(".")
             // Hooks are optional
-            .setup_post_init_hook(after_init_timer, Some(&(duration,id.to_string())))
+            //.setup_post_init_hook(after_init_timer, Some(&(duration,id.to_string())))
             .start();
 
         match daemon {
@@ -93,6 +91,7 @@ chimer -t 0:10:0 \"Go for a walk\" ");
                 exit(-1);
             },
         }
+        after_init_timer((duration,id.to_string()));
     }
 }
 
