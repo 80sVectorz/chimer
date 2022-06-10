@@ -17,8 +17,8 @@ use std::io;
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
 
-fn after_init_timer(a: (u64,String)) {
-    let target_time = chrono::Local::now().time() + chrono::Duration::seconds(a.0 as i64);
+fn after_init_timer(duration: u64, id: String) {
+    let target_time = chrono::Local::now().time() + chrono::Duration::seconds(duration as i64);
 
     loop {
         if chrono::Local::now().time() >= target_time {
@@ -31,7 +31,7 @@ fn after_init_timer(a: (u64,String)) {
             // Play the sound directly on the device
             stream_handle.play_raw(source.convert_samples()).expect("Failed to play audio!");
             Notification::new()
-            .summary(&format!("Timer finished: {}", a.1))
+            .summary(&format!("Timer finished: {}", id))
             .timeout(0)
             .show()
             .unwrap()
@@ -91,7 +91,7 @@ chimer -t 0:10:0 \"Go for a walk\" ");
                 exit(-1);
             },
         }
-        after_init_timer((duration,id.to_string()));
+        after_init_timer(duration,id.to_string());
     }
 }
 
